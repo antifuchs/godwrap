@@ -130,7 +130,7 @@ func (influxdb *InfluxDB) Run(cctx *Context) error {
 			if err != nil {
 				log.Fatalf("Could not read status %q: %v", status, err)
 			}
-			fmt.Printf("%s name=%q exit_status:%d,success:%v %d\n",
+			fmt.Printf("%s,name=%q exit_status:%d,success:%v %d\n",
 				influxdb.Measurement,
 				actual.Name,
 				actual.ExitStatus,
