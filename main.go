@@ -60,18 +60,20 @@ func (r *Run) Run(cctx *Context) error {
 }
 
 type statusJSON struct {
-	Name        string   `json:"name"`
-	CommandLine []string `json:"command_line"`
-	Output      string   `json:"output"`
-	Error       string   `json:"error"`
-	ExitStatus  int      `json:"exit_status"`
-	Success     bool     `json:"success"`
+	Name        string    `json:"name"`
+	LastRun     time.Time `json:"last_run"`
+	CommandLine []string  `json:"command_line"`
+	Output      string    `json:"output"`
+	Error       string    `json:"error"`
+	ExitStatus  int       `json:"exit_status"`
+	Success     bool      `json:"success"`
 }
 
 func writeStatus(cctx *Context, name string, commandLine []string, output string, status error) error {
 	filename := filepath.Join(cctx.StatusDir, fmt.Sprintf("%s.json", name))
 	statusContents := statusJSON{
 		Name:        name,
+		LastRun:     time.Now(),
 		Output:      output,
 		CommandLine: commandLine,
 		Success:     status == nil,
@@ -109,10 +111,17 @@ func (influxdb *InfluxDB) Run(cctx *Context) error {
 	buf := make([]byte, 256)
 	for {
 		for _, status := range statuses {
-			err := influxdb.runOne(status)
+			actual, err := readOne(status)
 			if err != nil {
-				return err
+				log.Fatalf("Could not read status %q: %v", status, err)
 			}
+			fmt.Printf("%s name=%q exit_status:%d success:%v,last_run:%d\n",
+				influxdb.Measurement,
+				actual.Name,
+				actual.ExitStatus,
+				actual.Success,
+				actual.LastRun.Unix(),
+			)
 		}
 		if influxdb.Execd {
 			_, err := os.Stdin.Read(buf)
@@ -126,30 +135,44 @@ func (influxdb *InfluxDB) Run(cctx *Context) error {
 	return nil
 }
 
-func (influxdb *InfluxDB) runOne(status string) error {
+func readOne(status string) (statusJSON, error) {
+	var actual statusJSON
 	f, err := os.Open(status)
 	if err != nil {
-		log.Fatalf("Could not open %q: %v", status, err)
+		return actual, err
 	}
 	defer f.Close()
 	dec := json.NewDecoder(f)
-	var actual statusJSON
 	err = dec.Decode(&actual)
-	if err != nil {
-		log.Fatalf("Could not parse %q: %v", status, err)
+	return actual, err
+}
+
+type Inspect struct {
+	Names []string `arg help:"Names of cron jobs to inspect"`
+}
+
+func (in *Inspect) Run(cctx *Context) error {
+	for _, basename := range in.Names {
+		status := basename
+		if _, err := os.Stat(status); err != nil && os.IsNotExist(err) {
+			status = filepath.Join(cctx.StatusDir, fmt.Sprintf("%s.json", basename))
+		}
+		actual, err := readOne(status)
+		if err != nil {
+			log.Fatalf("Could not read status %q: %v", status, err)
+		}
+		fmt.Printf("job=%q ran=%v cmdline=%q error=%q success=%v exit_status=%d\n", actual.Name, actual.LastRun, fmt.Sprintf("%v", actual.CommandLine), actual.Error, actual.Success, actual.ExitStatus)
+		if cctx.Debug {
+			fmt.Printf("output:\n%s", actual.Output)
+		}
 	}
-	fmt.Printf("%s name=%q exit_status:%d success:%v\n",
-		influxdb.Measurement,
-		actual.Name,
-		actual.ExitStatus,
-		actual.Success,
-	)
 	return nil
 }
 
 var cli struct {
 	Run      Run      `cmd help:"Run a cronjob"`
 	InfluxDB InfluxDB `cmd help:"Emits influxdb metrics for telegraf's 'execd' STDIN collection"`
+	Inspect  Inspect  `cmd help:"Outputs information about cron jobs' last run"`
 
 	Debug  bool   `help:"Run in verbose mode"`
 	Status string `help:"Directory in which to write status" default:"/var/tmp/dogwrap"`
