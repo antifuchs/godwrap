@@ -148,7 +148,7 @@ func readOne(status string) (statusJSON, error) {
 }
 
 type Inspect struct {
-	Names []string `arg help:"Names of cron jobs to inspect"`
+	Names []string `arg help:"Names of cron jobs to inspect, or path name to their state file"`
 }
 
 func (in *Inspect) Run(cctx *Context) error {
@@ -171,7 +171,7 @@ func (in *Inspect) Run(cctx *Context) error {
 
 var cli struct {
 	Run      Run      `cmd help:"Run a cronjob"`
-	InfluxDB InfluxDB `cmd help:"Emits influxdb metrics for telegraf's 'execd' STDIN collection"`
+	InfluxDB InfluxDB `cmd name:"influxdb" help:"Emits influxdb metrics for telegraf's 'execd' STDIN collection"`
 	Inspect  Inspect  `cmd help:"Outputs information about cron jobs' last run"`
 
 	Debug  bool   `help:"Run in verbose mode"`
