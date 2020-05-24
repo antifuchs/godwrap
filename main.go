@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,12 +27,23 @@ type Context struct {
 type Run struct {
 	Name    string        `help:"Name of this cron job"`
 	Timeout time.Duration `help:"Maximum amount of time that the job can run."`
+	Mode    string        `help:"File mode (in guessed base, so prefix with 0) for the status file." default:"0640"`
 	Command []string      `arg help:"Command (and arguments) to run"`
+}
+
+func (r *Run) fileMode() os.FileMode {
+	modeInt, err := strconv.ParseUint(r.Mode, 0, 32)
+	if err != nil {
+		log.Fatalf("Can't parse file mode %q: %v", r.Mode, err)
+	}
+	mode := os.FileMode(modeInt) & os.ModePerm
+	return mode
 }
 
 // Run on a Run runs the cronjob.
 func (r *Run) Run(cctx *Context) error {
 	ctx := context.Background()
+	mode := r.fileMode()
 	if r.Timeout > 0 {
 		var cancel func()
 		ctx, cancel = context.WithTimeout(ctx, r.Timeout)
@@ -51,7 +63,7 @@ func (r *Run) Run(cctx *Context) error {
 	if err != nil {
 		log.Printf("Cronjob %q (%v) failed: %v.\nOutput follows:\n\n%v", name, r.Command, err, wrote)
 	}
-	statusErr := writeStatus(cctx, name, r.Command, wrote, err)
+	statusErr := writeStatus(cctx, name, r.Command, wrote, mode, err)
 	if statusErr != nil {
 		log.Printf("Could not write status file for %q: %v", name, statusErr)
 		return statusErr
@@ -69,7 +81,7 @@ type statusJSON struct {
 	Success     bool      `json:"success"`
 }
 
-func writeStatus(cctx *Context, name string, commandLine []string, output string, status error) error {
+func writeStatus(cctx *Context, name string, commandLine []string, output string, mode os.FileMode, status error) error {
 	filename := filepath.Join(cctx.StatusDir, fmt.Sprintf("%s.json", name))
 	statusContents := statusJSON{
 		Name:        name,
@@ -90,7 +102,10 @@ func writeStatus(cctx *Context, name string, commandLine []string, output string
 	if err != nil {
 		return err
 	}
-	defer os.Rename(file.Name(), filename)
+	defer func() {
+		os.Chmod(file.Name(), mode) // Allow telegraf to read the file
+		os.Rename(file.Name(), filename)
+	}()
 
 	enc := json.NewEncoder(file)
 	enc.Encode(statusContents)
