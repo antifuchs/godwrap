@@ -175,7 +175,7 @@ var cli struct {
 	Inspect  Inspect  `cmd help:"Outputs information about cron jobs' last run"`
 
 	Debug  bool   `help:"Run in verbose mode"`
-	Status string `help:"Directory in which to write status" default:"/var/tmp/dogwrap"`
+	Status string `help:"Directory in which to write status" default:"/var/lib/godwrap"`
 }
 
 func main() {
