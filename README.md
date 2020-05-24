@@ -40,7 +40,6 @@ This will output the following metrics, tagged with `name` (the name given to th
 
 * `godwrap_cronjob.exit_status` integer - the exit code from the cronjob. Assume this is a problem if that is non-0.
 * `godwrap_cronjob.success` boolean - true if the exit code is 0, false otherwise
-* `godwrap_cronjob.last_run` int64 - timestamp of the last run, in number of seconds since the UNIX epoch.
 
 ### Inspecting your cronjobs' last run
 
