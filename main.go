@@ -79,6 +79,7 @@ type statusJSON struct {
 	CommandLine []string  `json:"command_line"`
 	Username    string    `json:"user_name"`
 	Uid         string    `json:"user_id"`
+	Environ     []string  `json:"environment"`
 	Output      string    `json:"output"`
 	Error       string    `json:"error"`
 	ExitStatus  int       `json:"exit_status"`
@@ -95,6 +96,7 @@ func writeStatus(cctx *Context, name string, commandLine []string, output string
 	statusContents := statusJSON{
 		Name:        name,
 		LastRun:     time.Now(),
+		Environ:     os.Environ(),
 		Output:      output,
 		CommandLine: commandLine,
 		Success:     status == nil,
@@ -206,7 +208,11 @@ func (in *Inspect) Run(cctx *Context) error {
 			actual.ExitStatus,
 		)
 		if cctx.Debug {
-			fmt.Printf("output:\n%s", actual.Output)
+			fmt.Printf("env:\n")
+			for _, env := range actual.Environ {
+				fmt.Println(env)
+			}
+			fmt.Printf("\noutput:\n%s", actual.Output)
 		}
 	}
 	return nil
