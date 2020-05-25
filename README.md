@@ -25,6 +25,18 @@ godwrap run --name="name-of-cronjob" -- /usr/bin/program arg1 arg2 "arg three"
 
 This will execute the program, capture output and write it all to the state file `/var/lib/godwrap/35b105de417f23876a4d5d4e93ea540b8a3666ab.json`.
 
+#### Caution on the `--` separator
+
+You *can* pass the program and its args to godwrap without using the
+`--` command separator, but it's unsafe: If the command line to invoke
+includes a `-` flag, `godwrap`'s command line parser will try and
+interpret it (see [this
+issue](https://github.com/alecthomas/kong/issues/80)).
+
+Any command might grow a more complex command line eventually, so it's
+safest to always separate the godwrap command line from the wrapped
+command's command line with a `--`.
+
 ### Capturing metrics on your cronjobs
 
 Set up telegraf with the following configuration:
