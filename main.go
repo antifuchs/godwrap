@@ -115,7 +115,7 @@ func writeStatus(cctx *Context, name string, commandLine []string, output string
 		statusContents.Username = user.Username
 		statusContents.Uid = user.Uid
 	}
-	file, err := ioutil.TempFile(cctx.StatusDir, fmt.Sprintf(".status-%v", name))
+	file, err := ioutil.TempFile(cctx.StatusDir, fmt.Sprintf(".status-%v", filepath.Base(filename)))
 	if err != nil {
 		return err
 	}
