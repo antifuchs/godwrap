@@ -20,10 +20,10 @@ Then ensure that your state file directory exists. The default is `/var/lib/godw
 ### Running your cronjob
 
 ``` sh
-godwrap run --name="name-of-cronjob" /usr/bin/program arg1 arg2 "arg three"
+godwrap run --name="name-of-cronjob" -- /usr/bin/program arg1 arg2 "arg three"
 ```
 
-This will execute the program, capture output and write it all to the state file `/var/lib/godwrap/name-of-cronjob.json`.
+This will execute the program, capture output and write it all to the state file `/var/lib/godwrap/35b105de417f23876a4d5d4e93ea540b8a3666ab.json`.
 
 ### Capturing metrics on your cronjobs
 
@@ -44,7 +44,13 @@ This will output the following metrics, tagged with `name` (the name given to th
 ### Inspecting your cronjobs' last run
 
 ```sh
-godwrap inspect --debug /var/lib/godwrap/name-of-cronjob.json
+godwrap inspect --debug name-of-cronjob.json
+```
+
+or
+
+```sh
+godwrap inspect --debug /var/lib/godwrap/35b105de417f23876a4d5d4e93ea540b8a3666ab.json
 ```
 
 will output something like:
