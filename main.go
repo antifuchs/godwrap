@@ -12,6 +12,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -76,6 +77,8 @@ type statusJSON struct {
 	Name        string    `json:"name"`
 	LastRun     time.Time `json:"last_run"`
 	CommandLine []string  `json:"command_line"`
+	Username    string    `json:"user_name"`
+	Uid         string    `json:"user_id"`
 	Output      string    `json:"output"`
 	Error       string    `json:"error"`
 	ExitStatus  int       `json:"exit_status"`
@@ -103,6 +106,12 @@ func writeStatus(cctx *Context, name string, commandLine []string, output string
 		statusContents.ExitStatus = ee.ExitCode()
 	} else if status != nil {
 		statusContents.ExitStatus = -17 // some negative number that indicates it's nonsense
+	}
+	user, err := user.Current()
+	if err == nil {
+		// Only fill in the fields if retrieving the user worked:
+		statusContents.Username = user.Username
+		statusContents.Uid = user.Uid
 	}
 	file, err := ioutil.TempFile(cctx.StatusDir, fmt.Sprintf(".status-%v", name))
 	if err != nil {
@@ -136,10 +145,12 @@ func (influxdb *InfluxDB) Run(cctx *Context) error {
 			if err != nil {
 				log.Fatalf("Could not read status %q: %v", status, err)
 			}
-			fmt.Printf("%s,name=%q,status_file=%q exit_status=%di,success=%v %d\n",
+			fmt.Printf("%s,name=%q,status_file=%q,user_name=%q,uid=%q exit_status=%di,success=%v %d\n",
 				influxdb.Measurement,
 				actual.Name,
 				status,
+				actual.Username,
+				actual.Uid,
 				actual.ExitStatus,
 				actual.Success,
 				actual.LastRun.UnixNano(),
@@ -183,7 +194,17 @@ func (in *Inspect) Run(cctx *Context) error {
 		if err != nil {
 			log.Fatalf("Could not read status %q: %v", status, err)
 		}
-		fmt.Printf("job=%q status_file=%q ran=%v cmdline=%q error=%q success=%v exit_status=%d\n", actual.Name, status, actual.LastRun, fmt.Sprintf("%v", actual.CommandLine), actual.Error, actual.Success, actual.ExitStatus)
+		fmt.Printf("job=%q status_file=%q user_name=%q user_id=%q ran=%v cmdline=%q error=%q success=%v exit_status=%d\n",
+			actual.Name,
+			status,
+			actual.Username,
+			actual.Uid,
+			actual.LastRun,
+			fmt.Sprintf("%v", actual.CommandLine),
+			actual.Error,
+			actual.Success,
+			actual.ExitStatus,
+		)
 		if cctx.Debug {
 			fmt.Printf("output:\n%s", actual.Output)
 		}
