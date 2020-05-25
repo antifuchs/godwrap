@@ -5,6 +5,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha1"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -25,7 +26,7 @@ type Context struct {
 }
 
 type Run struct {
-	Name    string        `help:"Name of this cron job"`
+	Name    string        `help:"Name of this cron job. Must be unique."`
 	Timeout time.Duration `help:"Maximum amount of time that the job can run."`
 	Mode    string        `help:"File mode (in guessed base, so prefix with 0) for the status file." default:"0640"`
 	Command []string      `arg help:"Command (and arguments) to run"`
@@ -81,8 +82,13 @@ type statusJSON struct {
 	Success     bool      `json:"success"`
 }
 
+func statusFileName(dir, name string) string {
+	sum := sha1.Sum([]byte(name))
+	return filepath.Join(dir, fmt.Sprintf("%x.json", sum))
+}
+
 func writeStatus(cctx *Context, name string, commandLine []string, output string, mode os.FileMode, status error) error {
-	filename := filepath.Join(cctx.StatusDir, fmt.Sprintf("%s.json", name))
+	filename := statusFileName(cctx.StatusDir, name)
 	statusContents := statusJSON{
 		Name:        name,
 		LastRun:     time.Now(),
@@ -130,9 +136,10 @@ func (influxdb *InfluxDB) Run(cctx *Context) error {
 			if err != nil {
 				log.Fatalf("Could not read status %q: %v", status, err)
 			}
-			fmt.Printf("%s,name=%q exit_status=%di,success=%v %d\n",
+			fmt.Printf("%s,name=%q,status_file=%q exit_status=%di,success=%v %d\n",
 				influxdb.Measurement,
 				actual.Name,
+				status,
 				actual.ExitStatus,
 				actual.Success,
 				actual.LastRun.UnixNano(),
@@ -170,13 +177,13 @@ func (in *Inspect) Run(cctx *Context) error {
 	for _, basename := range in.Names {
 		status := basename
 		if _, err := os.Stat(status); err != nil && os.IsNotExist(err) {
-			status = filepath.Join(cctx.StatusDir, fmt.Sprintf("%s.json", basename))
+			status = statusFileName(cctx.StatusDir, basename)
 		}
 		actual, err := readOne(status)
 		if err != nil {
 			log.Fatalf("Could not read status %q: %v", status, err)
 		}
-		fmt.Printf("job=%q ran=%v cmdline=%q error=%q success=%v exit_status=%d\n", actual.Name, actual.LastRun, fmt.Sprintf("%v", actual.CommandLine), actual.Error, actual.Success, actual.ExitStatus)
+		fmt.Printf("job=%q status_file=%q ran=%v cmdline=%q error=%q success=%v exit_status=%d\n", actual.Name, status, actual.LastRun, fmt.Sprintf("%v", actual.CommandLine), actual.Error, actual.Success, actual.ExitStatus)
 		if cctx.Debug {
 			fmt.Printf("output:\n%s", actual.Output)
 		}
