@@ -8,7 +8,6 @@ import (
 	"crypto/sha1"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -19,6 +18,7 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
+	"github.com/google/renameio"
 )
 
 type Context struct {
@@ -115,19 +115,16 @@ func writeStatus(cctx *Context, name string, commandLine []string, output string
 		statusContents.Username = user.Username
 		statusContents.Uid = user.Uid
 	}
-	file, err := ioutil.TempFile(cctx.StatusDir, fmt.Sprintf(".status-%v", filepath.Base(filename)))
+	file, err := renameio.TempFile("", filename)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		os.Chmod(file.Name(), mode) // Allow telegraf to read the file
-		os.Rename(file.Name(), filename)
-	}()
+	defer file.Cleanup()
 
 	enc := json.NewEncoder(file)
 	enc.Encode(statusContents)
-	file.Close()
-	return nil
+	os.Chmod(file.Name(), mode)
+	return file.CloseAtomicallyReplace()
 }
 
 type InfluxDB struct {
