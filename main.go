@@ -136,12 +136,12 @@ type InfluxDB struct {
 }
 
 func (influxdb *InfluxDB) Run(cctx *Context) error {
-	statuses, err := filepath.Glob(filepath.Join(cctx.StatusDir, "*.json"))
-	if err != nil {
-		return err
-	}
 	buf := make([]byte, 256)
 	for {
+		statuses, err := filepath.Glob(filepath.Join(cctx.StatusDir, "*.json"))
+		if err != nil {
+			return err
+		}
 		for _, status := range statuses {
 			actual, err := readOne(status)
 			if err != nil {
